@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golf Shot Distance Tracker</title>
+    <style>
+        :root {
+            --primary: #1e7e34;
+            --primary-hover: #155724;
+            --dark: #212529;
+            --light: #f8f9fa;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--light);
+            color: var(--dark);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .card {
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        h1 {
+            margin-top: 0;
+            color: var(--primary);
+            font-size: 1.5rem;
+        }
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 16px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            width: 100%;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .display {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 20px 0;
+            color: var(--dark);
+        }
+        .status {
+            font-size: 0.85rem;
+            color: #6c757d;
+            min-height: 20px;
+            margin-bottom: 15px;
+        }
+        .coords {
+            font-family: monospace;
+            font-size: 0.8rem;
+            background: #eee;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 15px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>Golf Distance Tracker</h1>
+    
+    <div id="status" class="status">Ready to track shot</div>
+    
+    <div id="distanceDisplay" class="display">0.0 Yds</div>
+    
+    <button id="startBtn" class="btn">📍 Set Ball Start (Tee)</button>
+    <button id="endBtn" class="btn btn-secondary" disabled>🎯 Calculate Distance</button>
+    
+    <div id="coordDisplay" class="coords" style="display: none;">
+        <strong>Start:</strong> <span id="startCoords">-</span><br>
+        <strong>End:</strong> <span id="endCoords">-</span>
+    </div>
+</div>
+
+<script>
+    let startPos = null;
+    
+    const startBtn = document.getElementById('startBtn');
+    const endBtn = document.getElementById('endBtn');
+    const statusDiv = document.getElementById('status');
+    const distanceDisplay = document.getElementById('distanceDisplay');
+    const coordDisplay = document.getElementById('coordDisplay');
+    const startCoordsSpan = document.getElementById('startCoords');
+    const endCoordsSpan = document.getElementById('endCoords');
+
+    // High accuracy settings for GPS
+    const geoOptions = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+    };
+
+    // Step 1: Lock in the starting position
+    startBtn.addEventListener('click', () => {
+        statusDiv.innerText = "Locating GPS starting point...";
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                startPos = {
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude
+                };
+                
+                startCoordsSpan.innerText = `${startPos.lat.toFixed(5)}, ${startPos.lon.toFixed(5)}`;
+                coordDisplay.style.display = 'block';
+                statusDiv.innerText = "Start point saved! Walk to your ball.";
+                
+                // Enable secondary button
+                endBtn.removeAttribute('disabled');
+                endBtn.classList.remove('btn-secondary');
+            },
+            (error) => {
+                statusDiv.innerText = `Error getting location: ${error.message}`;
+            },
+            geoOptions
+        );
+    });
+
+    // Step 2: Lock in ending position and calculate
+    endBtn.addEventListener('click', () => {
+        if (!startPos) return;
+        statusDiv.innerText = "Locating GPS ending point...";
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const endPos = {
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude
+                };
+                
+                endCoordsSpan.innerText = `${endPos.lat.toFixed(5)}, ${endPos.lon.toFixed(5)}`;
+                
+                // Calculate via Haversine
+                const distance = haversineDistance(startPos.lat, startPos.lon, endPos.lat, endPos.lon);
+                
+                distanceDisplay.innerText = `${distance.toFixed(1)} Yds`;
+                statusDiv.innerText = "Shot calculated successfully!";
+            },
+            (error) => {
+                statusDiv.innerText = `Error getting location: ${error.message}`;
+            },
+            geoOptions
+        );
+    });
+
+    // Haversine implementation
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371e3; // Earth's radius in metres
+        const toRad = deg => deg * Math.PI / 180;
+        
+        const phi1 = toRad(lat1);
+        const phi2 = toRad(lat2);
+        const deltaPhi = toRad(lat2 - lat1);
+        const deltaLambda = toRad(lon2 - lon1);
+
+        const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+                  Math.cos(phi1) * Math.cos(phi2) *
+                  Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+                  
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const metres = R * c;
+
+        return metres * 1.09361; // Returns Yards
+    }
+</script>
+
+</body>
+</html>
